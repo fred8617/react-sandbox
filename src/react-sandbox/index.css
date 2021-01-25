@@ -1,0 +1,30 @@
+.Resizer {
+    transform: translateZ(0px);
+    background-color: rgb(4, 4, 4);
+    width: 16px;
+    display: block;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 50;
+  }
+  .Resizer::before {
+    content: '';
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+    margin-left: -4px;
+    width: 24px;
+    z-index: 50;
+  }
+   .Resizer::after {
+    content: '';
+    display: flex;
+    background: rgb(255, 255, 255);
+    border-radius: 50px;
+    position: absolute;
+    width: 4px;
+    height: 41px;
+    top: calc(50% - 20px);
+    margin-left: 6px;
+    opacity: 1;
+  }
