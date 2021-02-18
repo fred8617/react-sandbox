@@ -51,7 +51,7 @@ import React, {
       </>
     );
   };
-  interface TypeScriptProps extends CodeEditorProps {
+  export interface TypeScriptProps extends CodeEditorProps {
     /**
      * ts编辑器外置库
      */

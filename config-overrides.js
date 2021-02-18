@@ -14,17 +14,4 @@ module.exports = override(
       languages: ["typescript"],
     })
   )
-  //   addBabelPlugin([
-  //     "import",
-  //     {
-  //       libraryName: "antd",
-  //       // libraryDirectory: 'es',
-  //       style: true,
-  //     },
-  //     "ant",
-  //   ]),
-  //   addLessLoader({
-  //     javascriptEnabled: true,
-  //     // modifyVars: { "@primary-color": "#1DA57A" }
-  //   })
 );

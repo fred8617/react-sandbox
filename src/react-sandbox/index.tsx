@@ -7,7 +7,7 @@ import React, {
   useMemo,
 } from "react";
 import SplitPane from "react-split-pane";
-import CodeEditor, { TypeScriptRef } from "./CodeEditor";
+import CodeEditor, { TypeScriptProps, TypeScriptRef } from "./CodeEditor";
 import Frame, { FrameContextConsumer } from "react-frame-component";
 import debounce from "lodash.debounce";
 import "./index.css";
@@ -25,11 +25,17 @@ interface Script {
   types?: string[];
   typeCode?: string;
 }
+
+interface Style {
+  href?: string;
+  code?: string;
+}
 /**
  * 沙盒属性，目前默认ts沙盒
  */
-export interface SandboxProps {
+export interface SandboxProps extends TypeScriptProps {
   scripts?: Script[];
+  styles?: Style[];
   code?: string;
 }
 
@@ -68,24 +74,18 @@ const getCode = async (src) => {
 const Sandbox: FC<SandboxProps> = ({
   scripts: pScripts = [],
   code: pCode = "",
-  //   cssLib = [],
-  //   files = {},
-  //   extraLibType = {},
-  //   beforeExcuteScript = "",
-  //   defaultValue = "",
+  styles: pStyles = [],
+  extraLibs,
   ...props
 }) => {
-  const [code, setCode] = useState<string>(pCode);
+  // const [code, setCode] = useState<string>(pCode);
   const [loading, setLoading] = useState<boolean>(true);
   const [scripts, setScripts] = useState<Script[]>(pScripts);
-  // const [error, setError] = useState<string>();
+  const [styles, setStyles] = useState<Style[]>(pStyles);
   const [dragging, setDragging] = useState<boolean>();
-
   const loadersCode = useRef<string>("");
+  const cssCode = useRef<string>("");
   const imports = useRef<ImportsReflect>();
-
-  // console.log(imports,loadersCode);
-
   const run = useCallback(async (code) => {
     try {
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
@@ -107,7 +107,7 @@ const Sandbox: FC<SandboxProps> = ({
       document.appendChild(document.createElement("html"));
       document.documentElement.innerHTML = `
         <head>
-          <style type="text/css">csscode</style>
+          <style type="text/css">${cssCode.current}</style>
           <script type="systemjs-importmap">
          ${JSON.stringify({ imports: imports.current })}
         </script>
@@ -132,8 +132,8 @@ const Sandbox: FC<SandboxProps> = ({
       loader.type = "text/javascript";
       loader.innerHTML = loadersCode.current;
       document.body.appendChild(loader);
+      // setCode(code);
     } catch (error) {
-      // setError(error.stack);
       const document: Document = ref.current.window.document;
       if (document.children[0]) {
         document.removeChild(document.children[0]);
@@ -155,8 +155,6 @@ const Sandbox: FC<SandboxProps> = ({
     } finally {
       // store.rendering = false;
     }
-
-    setCode(code);
   }, []);
   // const [content, setContent] = useState<string>();
   useEffect(() => {
@@ -193,6 +191,13 @@ const Sandbox: FC<SandboxProps> = ({
             return script;
           })
         );
+        const newStyles = await Promise.all(
+          styles.map(async (style) => {
+            const code = await getCode(style.href!);
+            style.code = code;
+            return style;
+          })
+        );
         imports.current = Object.fromEntries(
           newScripts.map((e) => [
             e.name,
@@ -201,7 +206,9 @@ const Sandbox: FC<SandboxProps> = ({
             ),
           ])
         );
+        cssCode.current = newStyles.map((e) => e.code).join("");
         setScripts([...newScripts]);
+        setStyles([...newStyles]);
         loadersCode.current = loaders.map((e) => e.code).join(";");
       } finally {
         setLoading(false);
@@ -209,6 +216,7 @@ const Sandbox: FC<SandboxProps> = ({
       run(pCode);
     })();
   }, []);
+  
   const ref = useRef<any>();
   const editorRef = useRef<TypeScriptRef>(null);
   return (
@@ -221,19 +229,15 @@ const Sandbox: FC<SandboxProps> = ({
           pane2Style={{ position: "relative" }}
           split="vertical"
           defaultSize={`50%`}
-          // minSize={250}
         >
           <div style={{ height: `100%` }} key="code">
             <CodeEditor.TypeScript
               ref={editorRef}
-              defaultValue={code}
-              // libCode={Object.fromEntries(
-              //   scripts.map((e) => [e.name, e.typeCode]).filter(Boolean)
-              // )}
-              //   extraLibs={extraLibType}
+              defaultValue={pCode}
               libs={Object.fromEntries(
                 scripts.map((e) => [e.name, e.typeCode]).filter(Boolean)
               )}
+              extraLibs={extraLibs}
               onChange={debounce(run, 800)}
             />
           </div>
@@ -251,7 +255,6 @@ const Sandbox: FC<SandboxProps> = ({
                   <FrameContextConsumer>
                     {({ window }) => {
                       ref.current = window;
-                      // debugger
                       return <></>;
                     }}
                   </FrameContextConsumer>
