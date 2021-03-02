@@ -1,0 +1,28 @@
+//二叉树
+class TreeNode {
+  val: number;
+  left: TreeNode | null;
+  right: TreeNode | null;
+  constructor(val?: number, left?: TreeNode | null, right?: TreeNode | null) {
+    this.val = val === undefined ? 0 : val;
+    this.left = left === undefined ? null : left;
+    this.right = right === undefined ? null : right;
+  }
+}
+//单链表
+class ListNode {
+  val: number;
+  next: ListNode | null;
+  constructor(val?: number, next?: ListNode | null) {
+    this.val = val === undefined ? 0 : val;
+    this.next = next === undefined ? null : next;
+  }
+}
+
+window.execute = (...rest) => {
+  rest.forEach((e) => {
+    const pre = document.createElement("pre");
+    pre.innerHTML = JSON.stringify(e, null, 2);
+    document.getElementById("root").appendChild(pre);
+  });
+};

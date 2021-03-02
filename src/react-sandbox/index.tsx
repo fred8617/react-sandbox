@@ -37,6 +37,9 @@ export interface SandboxProps extends TypeScriptProps {
   scripts?: Script[];
   styles?: Style[];
   code?: string;
+  preExecute?: string;
+  onChange?(code: string);
+  wrapperFunction?(): string;
 }
 
 /**
@@ -76,6 +79,9 @@ const Sandbox: FC<SandboxProps> = ({
   code: pCode = "",
   styles: pStyles = [],
   extraLibs,
+  preExecute = "",
+  onChange,
+  wrapperFunction = (code) => code,
   ...props
 }) => {
   // const [code, setCode] = useState<string>(pCode);
@@ -96,7 +102,9 @@ const Sandbox: FC<SandboxProps> = ({
         )
       ).filter((e) => e.category === 1);
       console.log(diags);
-      const compiledCode = Babel.transform(code, babelConfig).code;
+      onChange?.(code);
+      const compiledCode = Babel.transform(`${preExecute};${code}`, babelConfig)
+        .code;
       //修复文档流
       const document: Document = ref.current.window.document;
       const codeBlob = new Blob([compiledCode], { type: "text/javascript" });
@@ -216,7 +224,7 @@ const Sandbox: FC<SandboxProps> = ({
       run(pCode);
     })();
   }, []);
-  
+
   const ref = useRef<any>();
   const editorRef = useRef<TypeScriptRef>(null);
   return (
@@ -239,6 +247,7 @@ const Sandbox: FC<SandboxProps> = ({
               )}
               extraLibs={extraLibs}
               onChange={debounce(run, 800)}
+              {...props}
             />
           </div>
           <div style={{ height: `100%` }} key="preview">
