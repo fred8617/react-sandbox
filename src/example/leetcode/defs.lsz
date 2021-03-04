@@ -18,6 +18,6 @@ class ListNode {
          this.next = (next===undefined ? null : next)
      }
  }
-
+//执行结果输入到右侧控制台
 function execute(...rest):void;
  

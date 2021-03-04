@@ -1,3 +1,4 @@
+/* eslint-disable import/no-webpack-loader-syntax */
 import React, {
   FC,
   useState,
@@ -13,6 +14,12 @@ import debounce from "lodash.debounce";
 import "./index.css";
 import * as monaco from "monaco-editor";
 import * as Babel from "@babel/standalone";
+import { getDiagsMessages } from "./util";
+import useUUID from "./useUUID";
+import template from "@babel/template";
+import systemjs from "!raw-loader!systemjs/dist/system.min.js";
+import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
+import { parseExpression, parse } from "@babel/parser";
 
 interface Script {
   //作为importmap的key
@@ -50,9 +57,11 @@ interface ImportsReflect {
 }
 
 const babelConfig = {
+  sourceMaps: "both",
   filename: "main.tsx",
   presets: ["typescript", "es2015", "react"],
   plugins: [
+    "maxium-count",
     "proposal-do-expressions",
     "proposal-optional-chaining",
     [
@@ -84,7 +93,7 @@ const Sandbox: FC<SandboxProps> = ({
   wrapperFunction = (code) => code,
   ...props
 }) => {
-  // const [code, setCode] = useState<string>(pCode);
+  const uuid = useUUID();
   const [loading, setLoading] = useState<boolean>(true);
   const [scripts, setScripts] = useState<Script[]>(pScripts);
   const [styles, setStyles] = useState<Style[]>(pStyles);
@@ -101,10 +110,16 @@ const Sandbox: FC<SandboxProps> = ({
           monaco.Uri.file("/index.tsx").toString()
         )
       ).filter((e) => e.category === 1);
-      console.log(diags);
+      const messages = getDiagsMessages(diags);
+      if (messages.length > 0) {
+        throw new Error(messages.join("\n"));
+      }
+
       onChange?.(code);
-      const compiledCode = Babel.transform(`${preExecute};${code}`, babelConfig)
-        .code;
+      const compiledCode = Babel.transform(
+        `var ${uuid}=0;${preExecute};${code}`,
+        babelConfig
+      ).code;
       //修复文档流
       const document: Document = ref.current.window.document;
       const codeBlob = new Blob([compiledCode], { type: "text/javascript" });
@@ -161,11 +176,36 @@ const Sandbox: FC<SandboxProps> = ({
         </body>
         `;
     } finally {
-      // store.rendering = false;
     }
   }, []);
-  // const [content, setContent] = useState<string>();
   useEffect(() => {
+    Babel.registerPlugin("maxium-count", () => {
+      const whileDoWhileStateMent = (path) => {
+        const uuidIncresment = template.ast(`${uuid}++`);
+        const uuidJudge = template.ast(`
+          if(${uuid}>999){
+            document.body.innerHTML='<pre id="root" style="color:red;font-weight:bold" >while语句超出最大循环限制</pre>'
+            throw new Error('超出最大循环限制')
+          }
+        `);
+        path.node.body.body.unshift(uuidJudge);
+        path.node.body.body.unshift(uuidIncresment);
+        const parentBody = path.parent.body;
+        for (let i = 0; i < parentBody.length; i++) {
+          const node = parentBody[i];
+          if (node === path.node) {
+            parentBody.splice(i + 1, 0, template.ast(`${uuid}=0`));
+            break;
+          }
+        }
+      };
+      return {
+        visitor: {
+          WhileStatement: whileDoWhileStateMent,
+          DoWhileStatement: whileDoWhileStateMent,
+        },
+      };
+    });
     (async () => {
       try {
         setLoading(true);
@@ -173,19 +213,21 @@ const Sandbox: FC<SandboxProps> = ({
           {
             name: "systemjs",
             src: "https://unpkg.com/systemjs/dist/system.min.js",
+            code:systemjs
           },
           {
             name: "systemjs-extra-amd",
             src: "https://unpkg.com/systemjs/dist/extras/amd.min.js",
+            code:systemjsAmd
           },
         ];
-        await Promise.all(
-          loaders.map(async (loader) => {
-            const code = await getCode(loader.src!);
-            loader.code = code;
-            return loader;
-          })
-        );
+        // await Promise.all(
+        //   loaders.map(async (loader) => {
+        //     const code = await getCode(loader.src!);
+        //     loader.code = code;
+        //     return loader;
+        //   })
+        // );
         const newScripts = await Promise.all(
           scripts.map(async (script) => {
             const code = await getCode(script.src!);
