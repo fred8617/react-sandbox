@@ -7,10 +7,6 @@ import React, {
 } from "react";
 import * as monaco from "monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
-import {
-  CodeActionAdaptor,
-  FormatHelper,
-} from "monaco-editor/esm/vs/language/typescript/languageFeatures";
 import prettier from "prettier/standalone";
 import babel from "prettier/parser-babylon";
 import gql from "prettier/parser-graphql";
@@ -22,7 +18,7 @@ export interface CodeEditorProps
     editor: monaco.editor.IStandaloneCodeEditor,
     monaco: typeof monacoEditor
   );
-  onChange?(code: string, event: monaco.editor.IModelContentChangedEvent);
+  onChange?(code: string, event?: monaco.editor.IModelContentChangedEvent);
   defaultValue?: string;
 }
 const CodeEditor: FC<CodeEditorProps> & { TypeScript: typeof TypeScript } = ({
@@ -124,12 +120,8 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
       });
     };
     useEffect(() => {
-      // debugger
-      // console.log(libs);
-      // console.log(monaco.languages.typescript.typescriptDefaults);
-
       loadLibs();
-
+      props.onChange?.(model.current?.getValue()!);
       return () => {};
     }, [libs]);
     return (
@@ -140,7 +132,6 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
           monacoRef.current = monaco;
           const compilerDefaults: monaco.languages.typescript.CompilerOptions = {
             baseUrl: "file:///node_modules/@types/",
-
             allowSyntheticDefaultImports: true,
             jsx: monaco.languages.typescript.JsxEmit.React,
             experimentalDecorators: true,

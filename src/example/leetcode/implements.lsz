@@ -18,8 +18,55 @@ class ListNode {
     this.next = next === undefined ? null : next;
   }
 }
-
-window.execute = (...rest) => {
+function serializeHelper(root: TreeNode | null, result: any[], queue: any[]) {
+  if (!root) {
+    queue.push(null);
+  }
+}
+function serializeWidely(root: TreeNode | null): string {
+  if (!root) {
+    return JSON.stringify([null]);
+  }
+  let result = [];
+  let queue = [root];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (node) {
+      result.push(node.val);
+      queue.push(node.left, node.right);
+    } else {
+      result.push(null);
+    }
+  }
+  return JSON.stringify(result);
+}
+function deserializeWidely(data: string): TreeNode | null {
+  const nodes = JSON.parse(data);
+  const node = nodes.shift();
+  if (node===null) {
+    return null;
+  }
+  const root = new TreeNode(node);
+  let queue = [root];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    const leftVal = nodes.shift();
+    const rightVal = nodes.shift();
+    if (leftVal !== null && leftVal !== undefined) {
+      const leftNode = new TreeNode(leftVal);
+      node.left = leftNode;
+      queue.push(leftNode);
+    }
+    if (rightVal !== null && rightVal !== undefined) {
+      const rightNode = new TreeNode(rightVal);
+      node.right = rightNode;
+      queue.push(rightNode);
+    }
+    // break;
+  }
+  return root;
+}
+function execute (...rest) {
   rest.forEach((e) => {
     const pre = document.createElement("pre");
     pre.innerHTML = JSON.stringify(e, null, 2);

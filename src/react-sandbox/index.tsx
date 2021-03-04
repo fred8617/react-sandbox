@@ -17,7 +17,7 @@ import * as Babel from "@babel/standalone";
 import { getDiagsMessages } from "./util";
 import useUUID from "./useUUID";
 import template from "@babel/template";
-import systemjs from "!raw-loader!systemjs/dist/system.min.js";
+import systemjs from "!raw-loader!systemjs/dist/system.js";
 import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
 import { parseExpression, parse } from "@babel/parser";
 
@@ -57,11 +57,10 @@ interface ImportsReflect {
 }
 
 const babelConfig = {
-  sourceMaps: "both",
   filename: "main.tsx",
-  presets: ["typescript", "es2015", "react"],
+  presets: ["typescript", "react"],
   plugins: [
-    "maxium-count",
+    // "maxium-count",
     "proposal-do-expressions",
     "proposal-optional-chaining",
     [
@@ -77,7 +76,6 @@ const babelConfig = {
       },
     ],
     ["proposal-class-properties", { loose: true }],
-    "transform-modules-systemjs",
   ],
 };
 const getCode = async (src) => {
@@ -116,10 +114,24 @@ const Sandbox: FC<SandboxProps> = ({
       }
 
       onChange?.(code);
-      const compiledCode = Babel.transform(
-        `var ${uuid}=0;${preExecute};${code}`,
-        babelConfig
-      ).code;
+      const preCheckCode = Babel.transform(code, {
+        ...babelConfig,
+        plugins: ["maxium-count", ...babelConfig.plugins],
+      }).code;
+      const compiledCode = `
+        var ${uuid}=0;
+        window.addEventListener('error',(e)=>{
+          console.log(e)
+        })
+          ${
+            Babel.transform(`${preExecute};${preCheckCode}`, {
+              ...babelConfig,
+              presets:[...babelConfig.presets,"es2015"],
+              plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
+            }).code
+          }
+        
+     `;
       //修复文档流
       const document: Document = ref.current.window.document;
       const codeBlob = new Blob([compiledCode], { type: "text/javascript" });
@@ -127,6 +139,7 @@ const Sandbox: FC<SandboxProps> = ({
       if (document.children[0]) {
         document.removeChild(document.children[0]);
       }
+
       document.appendChild(document.createElement("html"));
       document.documentElement.innerHTML = `
         <head>
@@ -147,7 +160,9 @@ const Sandbox: FC<SandboxProps> = ({
       sc.type = "systemjs-module";
       sc.src = url;
       document.body.appendChild(sc);
-      console.log(compiledCode);
+      process.env.NODE_ENV === "development" &&
+        console.log("preCheckCode", preCheckCode);
+        console.log("compiledCode", compiledCode);
       /**
        * loader代码加载
        */
@@ -181,20 +196,23 @@ const Sandbox: FC<SandboxProps> = ({
   useEffect(() => {
     Babel.registerPlugin("maxium-count", () => {
       const whileDoWhileStateMent = (path) => {
+        console.log(path, template.ast(`const t=()=>{}`));
         const uuidIncresment = template.ast(`${uuid}++`);
         const uuidJudge = template.ast(`
           if(${uuid}>999){
-            document.body.innerHTML='<pre id="root" style="color:red;font-weight:bold" >while语句超出最大循环限制</pre>'
+            document.body.innerHTML='<pre id="root" style="color:red;font-weight:bold" >语句死循环</pre>'
             throw new Error('超出最大循环限制')
           }
         `);
-        path.node.body.body.unshift(uuidJudge);
-        path.node.body.body.unshift(uuidIncresment);
+        const blocks: any[] = path.node.body.body;
+        blocks.unshift(uuidJudge);
+        blocks.unshift(uuidIncresment);
+        const clearUUID = template.ast(`${uuid}=0`);
         const parentBody = path.parent.body;
         for (let i = 0; i < parentBody.length; i++) {
           const node = parentBody[i];
           if (node === path.node) {
-            parentBody.splice(i + 1, 0, template.ast(`${uuid}=0`));
+            parentBody.splice(i + 1, 0, clearUUID);
             break;
           }
         }
@@ -213,21 +231,14 @@ const Sandbox: FC<SandboxProps> = ({
           {
             name: "systemjs",
             src: "https://unpkg.com/systemjs/dist/system.min.js",
-            code:systemjs
+            code: `try{${systemjs}}catch(e){}`,
           },
           {
             name: "systemjs-extra-amd",
             src: "https://unpkg.com/systemjs/dist/extras/amd.min.js",
-            code:systemjsAmd
+            code: systemjsAmd,
           },
         ];
-        // await Promise.all(
-        //   loaders.map(async (loader) => {
-        //     const code = await getCode(loader.src!);
-        //     loader.code = code;
-        //     return loader;
-        //   })
-        // );
         const newScripts = await Promise.all(
           scripts.map(async (script) => {
             const code = await getCode(script.src!);
