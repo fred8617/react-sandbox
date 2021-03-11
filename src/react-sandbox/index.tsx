@@ -15,10 +15,11 @@ import "./index.css";
 import * as monaco from "monaco-editor";
 import * as Babel from "@babel/standalone";
 import { getDiagsMessages } from "./util";
-import useUUID from "./useUUID";
+import useUUID, { generateUUID } from "./useUUID";
 import template from "@babel/template";
 import systemjs from "!raw-loader!systemjs/dist/system.js";
 import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
+import generate from "@babel/generator";
 import { parseExpression, parse } from "@babel/parser";
 
 interface Script {
@@ -126,7 +127,7 @@ const Sandbox: FC<SandboxProps> = ({
           ${
             Babel.transform(`${preExecute};${preCheckCode}`, {
               ...babelConfig,
-              presets:[...babelConfig.presets,"es2015"],
+              presets: [...babelConfig.presets, "es2015"],
               plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
             }).code
           }
@@ -162,7 +163,7 @@ const Sandbox: FC<SandboxProps> = ({
       document.body.appendChild(sc);
       process.env.NODE_ENV === "development" &&
         console.log("preCheckCode", preCheckCode);
-        console.log("compiledCode", compiledCode);
+      console.log("compiledCode", compiledCode);
       /**
        * loader代码加载
        */
@@ -196,23 +197,28 @@ const Sandbox: FC<SandboxProps> = ({
   useEffect(() => {
     Babel.registerPlugin("maxium-count", () => {
       const whileDoWhileStateMent = (path) => {
-        console.log(path, template.ast(`const t=()=>{}`));
+        const uuid = generateUUID();
         const uuidIncresment = template.ast(`${uuid}++`);
         const uuidJudge = template.ast(`
           if(${uuid}>999){
-            document.body.innerHTML='<pre id="root" style="color:red;font-weight:bold" >语句死循环</pre>'
+            document.body.innerHTML=\`<pre id="root" style="color:red;font-weight:bold" >
+${generate(path.node).code}
+语句死循环
+            </pre>\`;
             throw new Error('超出最大循环限制')
           }
         `);
         const blocks: any[] = path.node.body.body;
         blocks.unshift(uuidJudge);
         blocks.unshift(uuidIncresment);
-        const clearUUID = template.ast(`${uuid}=0`);
+        // const clearUUID = template.ast(`${uuid}=0`);
+        const insertUUID = template.ast(`let ${uuid}=0`);
         const parentBody = path.parent.body;
         for (let i = 0; i < parentBody.length; i++) {
           const node = parentBody[i];
           if (node === path.node) {
-            parentBody.splice(i + 1, 0, clearUUID);
+            // parentBody.splice(i + 1, 0, clearUUID);
+            parentBody.splice(i, 0, insertUUID);
             break;
           }
         }
