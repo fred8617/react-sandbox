@@ -196,7 +196,7 @@ const Sandbox: FC<SandboxProps> = ({
   }, []);
   useEffect(() => {
     Babel.registerPlugin("maxium-count", () => {
-      const whileDoWhileStateMent = (path) => {
+      const DeadCycle = (path) => {
         const uuid = generateUUID();
         const uuidIncresment = template.ast(`${uuid}++`);
         const uuidJudge = template.ast(`
@@ -225,8 +225,11 @@ ${generate(path.node).code}
       };
       return {
         visitor: {
-          WhileStatement: whileDoWhileStateMent,
-          DoWhileStatement: whileDoWhileStateMent,
+          WhileStatement: DeadCycle,
+          DoWhileStatement: DeadCycle,
+          ForInStatement: DeadCycle,
+          ForOfStatement: DeadCycle,
+          ForStatement: DeadCycle,
         },
       };
     });
