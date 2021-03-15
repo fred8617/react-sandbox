@@ -1,30 +1,61 @@
-.Resizer {
-    transform: translateZ(0px);
-    background-color: rgb(4, 4, 4);
-    width: 16px;
-    display: block;
-    height: 100%;
-    cursor: ew-resize;
-    z-index: 50;
-  }
-  .Resizer::before {
-    content: '';
-    position: absolute;
-    top: 0px;
-    bottom: 0px;
-    margin-left: -4px;
-    width: 24px;
-    z-index: 50;
-  }
-   .Resizer::after {
-    content: '';
-    display: flex;
-    background: rgb(255, 255, 255);
-    border-radius: 50px;
-    position: absolute;
-    width: 4px;
-    height: 41px;
-    top: calc(50% - 20px);
-    margin-left: 6px;
-    opacity: 1;
-  }
+.Resizer.vertical {
+  transform: translateZ(0px);
+  background-color: rgb(4, 4, 4);
+  width: 16px;
+  display: block;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 50;
+}
+.Resizer.vertical::before {
+  content: "";
+  position: absolute;
+  top: 0px;
+  bottom: 0px;
+  margin-left: -4px;
+  width: 24px;
+  z-index: 50;
+}
+.Resizer.vertical::after {
+  content: "";
+  display: flex;
+  background: rgb(255, 255, 255);
+  border-radius: 50px;
+  position: absolute;
+  width: 4px;
+  height: 41px;
+  top: calc(50% - 20px);
+  margin-left: 6px;
+  opacity: 1;
+}
+
+.Resizer.horizontal {
+  transform: translateZ(0px);
+  background-color: rgb(4, 4, 4);
+  height: 16px;
+  display: block;
+  cursor: n-resize;
+  z-index: 50;
+}
+.Resizer.horizontal::before {
+  content: "";
+  /* position: absolute; */
+  top: 0px;
+  bottom: 0px;
+  margin-left: -4px;
+  width: 24px;
+  z-index: 50;
+}
+.Resizer.horizontal::after {
+  content: "";
+  display: flex;
+  background: rgb(255, 255, 255);
+  border-radius: 50px;
+  position: absolute;
+  height: 4px;
+  width: 41px;
+  top: calc(50% - 2px);
+  left: calc(50% - 20px);
+  margin-left: 6px;
+  opacity: 1;
+}

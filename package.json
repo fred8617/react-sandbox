@@ -9,6 +9,7 @@
     "monaco-editor": "^0.21.2",
     "prettier": "^1.19.1",
     "react-frame-component": "4.1.1",
+    "react-json-view": "^1.21.3",
     "react-split-pane": "0.1.89",
     "systemjs": "^6.7.1"
   },

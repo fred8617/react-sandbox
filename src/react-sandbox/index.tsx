@@ -21,7 +21,10 @@ import systemjs from "!raw-loader!systemjs/dist/system.js";
 import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
 import generate from "@babel/generator";
 import { parseExpression, parse } from "@babel/parser";
-
+import ReactJson from "react-json-view";
+import ConsoleDivider from "./ConsoleDivider";
+const HORIZONTAL_BAR_SIZE = 16;
+const VERTICAL_BAR_SIZE = 16;
 interface Script {
   //作为importmap的key
   name: string;
@@ -82,6 +85,10 @@ const babelConfig = {
 const getCode = async (src) => {
   return fetch(src).then((res) => res.text());
 };
+interface ConsoleMessage {
+  type: "log" | "error";
+  data: any;
+}
 const Sandbox: FC<SandboxProps> = ({
   scripts: pScripts = [],
   code: pCode = "",
@@ -93,6 +100,13 @@ const Sandbox: FC<SandboxProps> = ({
   ...props
 }) => {
   const uuid = useUUID();
+  const pExecute = `
+window.console.log=function(data){
+  window.parent.postMessage({eventId:"${uuid}",type:"log",data})
+}
+;${preExecute}
+  `;
+  const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [scripts, setScripts] = useState<Script[]>(pScripts);
   const [styles, setStyles] = useState<Style[]>(pStyles);
@@ -100,7 +114,13 @@ const Sandbox: FC<SandboxProps> = ({
   const loadersCode = useRef<string>("");
   const cssCode = useRef<string>("");
   const imports = useRef<ImportsReflect>();
+  const libs = useMemo(() => {
+    return Object.fromEntries(
+      scripts.map((e) => [e.name, e.typeCode]).filter(Boolean)
+    );
+  }, [scripts]);
   const run = useCallback(async (code) => {
+    setConsoleMessages([]);
     try {
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
@@ -120,12 +140,12 @@ const Sandbox: FC<SandboxProps> = ({
         plugins: ["maxium-count", ...babelConfig.plugins],
       }).code;
       const compiledCode = `
-        var ${uuid}=0;
-        window.addEventListener('error',(e)=>{
-          console.log(e)
-        })
+        // var ${uuid}=0;
+        // window.addEventListener('error',(e)=>{
+        //   console.log(e)
+        // })
           ${
-            Babel.transform(`${preExecute};${preCheckCode}`, {
+            Babel.transform(`${pExecute};${preCheckCode}`, {
               ...babelConfig,
               presets: [...babelConfig.presets, "es2015"],
               plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
@@ -161,9 +181,9 @@ const Sandbox: FC<SandboxProps> = ({
       sc.type = "systemjs-module";
       sc.src = url;
       document.body.appendChild(sc);
-      process.env.NODE_ENV === "development" &&
-        console.log("preCheckCode", preCheckCode);
-      console.log("compiledCode", compiledCode);
+      // process.env.NODE_ENV === "development" &&
+      //   console.log("preCheckCode", preCheckCode);
+      // console.log("compiledCode", compiledCode);
       /**
        * loader代码加载
        */
@@ -194,6 +214,22 @@ const Sandbox: FC<SandboxProps> = ({
     } finally {
     }
   }, []);
+  const onMessage = useCallback(
+    (ev) => {
+      if (typeof ev.data !== "object" || ev.data.eventId !== uuid) {
+        return;
+      }
+      const message: ConsoleMessage = ev.data;
+      setConsoleMessages([...consoleMessages, message]);
+    },
+    [consoleMessages, uuid]
+  );
+  useEffect(() => {
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+    };
+  }, [onMessage]);
   useEffect(() => {
     Babel.registerPlugin("maxium-count", () => {
       const DeadCycle = (path) => {
@@ -289,9 +325,32 @@ ${generate(path.node).code}
 
   const ref = useRef<any>();
   const editorRef = useRef<TypeScriptRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [horizontalMaxSize, setHorizontalMaxSize] = useState<number>(9999);
+  const [verticalMaxSize, setVerticalMaxSize] = useState<number>(9999);
+  const caclSize = useCallback(() => {
+    setHorizontalMaxSize(
+      containerRef.current!.clientWidth - HORIZONTAL_BAR_SIZE
+    );
+    setVerticalMaxSize(containerRef.current!.clientHeight - VERTICAL_BAR_SIZE);
+  }, []);
+  const [consoleHeight, setConsoleHeight] = useState<number>(0);
+  const caclConsoleHeight = (containerHeight) => {
+    setConsoleHeight(containerHeight - HORIZONTAL_BAR_SIZE);
+  };
+  useEffect(() => {
+    caclConsoleHeight(containerRef.current!.clientHeight * 0.2);
+    caclSize();
+    window.addEventListener("resize", caclSize);
+    return () => window.removeEventListener("resize", caclSize);
+  }, [caclSize]);
   return (
     <>
-      <div className="sand-box" style={{ background: "#fff", height: `100vh` }}>
+      <div
+        className="sand-box"
+        ref={containerRef}
+        style={{ background: "#fff", height: `100vh` }}
+      >
         <SplitPane
           onDragStarted={() => setDragging(true)}
           onDragFinished={() => setDragging(false)}
@@ -299,40 +358,79 @@ ${generate(path.node).code}
           pane2Style={{ position: "relative" }}
           split="vertical"
           defaultSize={`50%`}
+          maxSize={horizontalMaxSize}
         >
           <div style={{ height: `100%` }} key="code">
             <CodeEditor.TypeScript
               ref={editorRef}
               defaultValue={pCode}
-              libs={Object.fromEntries(
-                scripts.map((e) => [e.name, e.typeCode]).filter(Boolean)
-              )}
+              libs={libs}
               extraLibs={extraLibs}
               onChange={debounce(run, 800)}
               {...props}
             />
           </div>
-          <div style={{ height: `100%` }} key="preview">
-            <>
-              {!loading && (
-                <Frame
-                  style={{
-                    height: `100%`,
-                    width: `100%`,
-                    pointerEvents: dragging ? "none" : "initial",
-                  }}
-                  className="frame"
-                >
-                  <FrameContextConsumer>
-                    {({ window }) => {
-                      ref.current = window;
-                      return <></>;
+          <SplitPane
+            onChange={(height) => {
+              caclConsoleHeight(containerRef.current!.clientHeight - height);
+            }}
+            onDragStarted={() => setDragging(true)}
+            onDragFinished={() => setDragging(false)}
+            pane1Style={{ position: "relative" }}
+            split="horizontal"
+            defaultSize={`80%`}
+            maxSize={verticalMaxSize}
+            minSize={0}
+          >
+            <div key="preview" style={{ width: `100%` }}>
+              <>
+                {!loading && (
+                  <Frame
+                    style={{
+                      height: `100%`,
+                      width: `100%`,
+                      pointerEvents: dragging ? "none" : "initial",
                     }}
-                  </FrameContextConsumer>
-                </Frame>
-              )}
-            </>
-          </div>
+                    className="frame"
+                  >
+                    <FrameContextConsumer>
+                      {({ window }) => {
+                        if (!ref.current) {
+                          ref.current = window;
+                        }
+
+                        return <></>;
+                      }}
+                    </FrameContextConsumer>
+                  </Frame>
+                )}
+              </>
+            </div>
+            <div
+              key="console"
+              style={{
+                height: consoleHeight,
+                overflow: "auto",
+                padding: 8,
+                boxSizing: "border-box",
+              }}
+            >
+              {consoleMessages.map((message, i) => (
+                <>
+                  {typeof message.data === "object" && (
+                    <ReactJson
+                      style={{ position: "static" }}
+                      collapsed
+                      name={null}
+                      key={`msg${i}`}
+                      src={message.data}
+                    />
+                  )}
+                  {i !== consoleMessages.length - 1 && <ConsoleDivider />}
+                </>
+              ))}
+            </div>
+          </SplitPane>
         </SplitPane>
       </div>
     </>
