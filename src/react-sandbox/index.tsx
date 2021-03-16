@@ -15,14 +15,15 @@ import "./index.css";
 import * as monaco from "monaco-editor";
 import * as Babel from "@babel/standalone";
 import { getDiagsMessages } from "./util";
-import useUUID, { generateUUID } from "./useUUID";
-import template from "@babel/template";
 import systemjs from "!raw-loader!systemjs/dist/system.js";
 import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
+import useUUID, { generateUUID } from "./useUUID";
+import template from "@babel/template";
 import generate from "@babel/generator";
 import { parseExpression, parse } from "@babel/parser";
 import ReactJson from "react-json-view";
 import ConsoleDivider from "./ConsoleDivider";
+import "./babelPlugins";
 const HORIZONTAL_BAR_SIZE = 16;
 const VERTICAL_BAR_SIZE = 16;
 interface Script {
@@ -85,9 +86,10 @@ const babelConfig = {
 const getCode = async (src) => {
   return fetch(src).then((res) => res.text());
 };
+
 interface ConsoleMessage {
   type: "log" | "error";
-  data: any;
+  data: any[];
 }
 const Sandbox: FC<SandboxProps> = ({
   scripts: pScripts = [],
@@ -100,9 +102,13 @@ const Sandbox: FC<SandboxProps> = ({
   ...props
 }) => {
   const uuid = useUUID();
+  const eventId = `sb_${uuid}`;
   const pExecute = `
-window.console.log=function(data){
-  window.parent.postMessage({eventId:"${uuid}",type:"log",data})
+window.console.log=function(...data){
+  window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"log",data})
+}
+window.console.error=function(...data){
+  window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"error",data})
 }
 ;${preExecute}
   `;
@@ -120,8 +126,8 @@ window.console.log=function(data){
     );
   }, [scripts]);
   const run = useCallback(async (code) => {
-    setConsoleMessages([]);
     try {
+      setConsoleMessages([]);
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
       const diags = (
@@ -137,13 +143,9 @@ window.console.log=function(data){
       onChange?.(code);
       const preCheckCode = Babel.transform(code, {
         ...babelConfig,
-        plugins: ["maxium-count", ...babelConfig.plugins],
+        plugins: ["maxium-count", "catch-error", ...babelConfig.plugins],
       }).code;
       const compiledCode = `
-        // var ${uuid}=0;
-        // window.addEventListener('error',(e)=>{
-        //   console.log(e)
-        // })
           ${
             Babel.transform(`${pExecute};${preCheckCode}`, {
               ...babelConfig,
@@ -181,9 +183,9 @@ window.console.log=function(data){
       sc.type = "systemjs-module";
       sc.src = url;
       document.body.appendChild(sc);
-      // process.env.NODE_ENV === "development" &&
-      //   console.log("preCheckCode", preCheckCode);
-      // console.log("compiledCode", compiledCode);
+      process.env.NODE_ENV === "development" &&
+        console.log("preCheckCode", preCheckCode);
+      console.log("compiledCode", compiledCode);
       /**
        * loader代码加载
        */
@@ -216,59 +218,29 @@ window.console.log=function(data){
   }, []);
   const onMessage = useCallback(
     (ev) => {
-      if (typeof ev.data !== "object" || ev.data.eventId !== uuid) {
-        return;
-      }
-      const message: ConsoleMessage = ev.data;
+      console.log(ev);
+      const message: ConsoleMessage = ev.detail;
       setConsoleMessages([...consoleMessages, message]);
     },
-    [consoleMessages, uuid]
+    [consoleMessages]
+  );
+  const dispatchEvent = useCallback(
+    (detail) => {
+      const event = new CustomEvent<any>(eventId, { detail });
+      window.dispatchEvent(event);
+    },
+    [eventId]
   );
   useEffect(() => {
-    window.addEventListener("message", onMessage);
+    window[`dispatch_${eventId}_event`] = dispatchEvent;
+    window.addEventListener(eventId, onMessage);
+    // window.addEventListener("message", onMessage);
     return () => {
-      window.removeEventListener("message", onMessage);
+      window.removeEventListener(eventId, onMessage);
+      // window.removeEventListener("message", onMessage);
     };
-  }, [onMessage]);
+  }, [dispatchEvent, eventId, onMessage]);
   useEffect(() => {
-    Babel.registerPlugin("maxium-count", () => {
-      const DeadCycle = (path) => {
-        const uuid = generateUUID();
-        const uuidIncresment = template.ast(`${uuid}++`);
-        const uuidJudge = template.ast(`
-          if(${uuid}>999){
-            document.body.innerHTML=\`<pre id="root" style="color:red;font-weight:bold" >
-${generate(path.node).code}
-语句死循环
-            </pre>\`;
-            throw new Error('超出最大循环限制')
-          }
-        `);
-        const blocks: any[] = path.node.body.body;
-        blocks.unshift(uuidJudge);
-        blocks.unshift(uuidIncresment);
-        // const clearUUID = template.ast(`${uuid}=0`);
-        const insertUUID = template.ast(`let ${uuid}=0`);
-        const parentBody = path.parent.body;
-        for (let i = 0; i < parentBody.length; i++) {
-          const node = parentBody[i];
-          if (node === path.node) {
-            // parentBody.splice(i + 1, 0, clearUUID);
-            parentBody.splice(i, 0, insertUUID);
-            break;
-          }
-        }
-      };
-      return {
-        visitor: {
-          WhileStatement: DeadCycle,
-          DoWhileStatement: DeadCycle,
-          ForInStatement: DeadCycle,
-          ForOfStatement: DeadCycle,
-          ForStatement: DeadCycle,
-        },
-      };
-    });
     (async () => {
       try {
         setLoading(true);
@@ -416,18 +388,53 @@ ${generate(path.node).code}
               }}
             >
               {consoleMessages.map((message, i) => (
-                <>
-                  {typeof message.data === "object" && (
-                    <ReactJson
-                      style={{ position: "static" }}
-                      collapsed
-                      name={null}
-                      key={`msg${i}`}
-                      src={message.data}
-                    />
-                  )}
+                <React.Fragment key={`msg${i}`}>
+                  {message.data.map((data, i) => {
+                    return (
+                      <div style={{ paddingBottom: 8 }} key={`msg${i}`}>
+                        {typeof data === "string" &&
+                          message.type === "error" &&
+                          data && <pre style={{ color: "red" }}>{data}</pre>}
+                        {typeof data === "object" &&
+                          message.type === "log" &&
+                          data && (
+                            <ReactJson
+                              style={{ position: "static" }}
+                              collapsed
+                              name={null}
+                              key={`msg${i}`}
+                              src={data}
+                            />
+                          )}
+                        {data === null && (
+                          <span style={{ color: "purple" }}>null</span>
+                        )}
+                        {(typeof data === "number" ||
+                          typeof data === "string") &&
+                          message.type === "log" && <>{data}</>}
+                        {typeof data === "symbol" && (
+                          <span style={{ color: "red" }}>
+                            {data.toString()}
+                          </span>
+                        )}
+                        {typeof data === "function" && (
+                          <span style={{ color: "gray" }}>
+                            {data.toString()}
+                          </span>
+                        )}
+                        {typeof data === "undefined" && (
+                          <span style={{ color: "#d3d3d3" }}>undefined</span>
+                        )}
+                        {typeof data === "boolean" && (
+                          <span style={{ color: "blue" }}>
+                            {data.toString()}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                   {i !== consoleMessages.length - 1 && <ConsoleDivider />}
-                </>
+                </React.Fragment>
               ))}
             </div>
           </SplitPane>

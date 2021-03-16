@@ -67,9 +67,5 @@ function deserializeWidely(data: string): TreeNode | null {
   return root;
 }
 function execute (...rest) {
-  rest.forEach((e) => {
-    const pre = document.createElement("pre");
-    pre.innerHTML = JSON.stringify(e, null, 2);
-    document.getElementById("root").appendChild(pre);
-  });
+  console.log(...rest)
 };
