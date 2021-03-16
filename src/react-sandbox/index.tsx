@@ -185,9 +185,9 @@ window.console.error=function(...data){
       sc.type = "systemjs-module";
       sc.src = url;
       document.body.appendChild(sc);
-      process.env.NODE_ENV === "development" &&
-        console.log("preCheckCode", preCheckCode);
-      console.log("compiledCode", compiledCode);
+      // process.env.NODE_ENV === "development" &&
+      //   console.log("preCheckCode", preCheckCode);
+      // console.log("compiledCode", compiledCode);
       /**
        * loader代码加载
        */
@@ -220,7 +220,7 @@ window.console.error=function(...data){
   }, []);
   const onMessage = useCallback(
     (ev) => {
-      console.log(ev);
+      // console.log(ev);
       const message: ConsoleMessage = ev.detail;
       setConsoleMessages([...consoleMessages, message]);
     },
