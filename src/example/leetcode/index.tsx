@@ -10,6 +10,7 @@ const LeetCode: FC<LeetCodeProps> = ({ ...props }) => {
   return (
     <>
       <Sandbox
+        pageDefaultSize={0}
         code={c || code}
         onChange={(c) => {
           localStorage.setItem("leetcode", c);

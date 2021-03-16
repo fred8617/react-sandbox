@@ -52,6 +52,7 @@ export interface SandboxProps extends TypeScriptProps {
   preExecute?: string;
   onChange?(code: string);
   wrapperFunction?(): string;
+  pageDefaultSize?: number | string;
 }
 
 /**
@@ -98,6 +99,7 @@ const Sandbox: FC<SandboxProps> = ({
   extraLibs,
   preExecute = "",
   onChange,
+  pageDefaultSize = `80%`,
   wrapperFunction = (code) => code,
   ...props
 }) => {
@@ -311,7 +313,17 @@ window.console.error=function(...data){
     setConsoleHeight(containerHeight - HORIZONTAL_BAR_SIZE);
   };
   useEffect(() => {
-    caclConsoleHeight(containerRef.current!.clientHeight * 0.2);
+    let height = 0;
+    if (typeof pageDefaultSize === "string") {
+      if (pageDefaultSize.includes("%")) {
+        height =
+          containerRef.current!.clientHeight *
+          (1 - parseFloat(pageDefaultSize.replace("%", "")) / 100);
+      }
+    } else if (typeof pageDefaultSize === "number") {
+      height = containerRef.current!.clientHeight - pageDefaultSize;
+    }
+    caclConsoleHeight(height);
     caclSize();
     window.addEventListener("resize", caclSize);
     return () => window.removeEventListener("resize", caclSize);
@@ -350,7 +362,7 @@ window.console.error=function(...data){
             onDragFinished={() => setDragging(false)}
             pane1Style={{ position: "relative" }}
             split="horizontal"
-            defaultSize={`80%`}
+            defaultSize={pageDefaultSize}
             maxSize={verticalMaxSize}
             minSize={0}
           >
