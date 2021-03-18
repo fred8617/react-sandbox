@@ -102,7 +102,12 @@ const Sandbox: FC<SandboxProps> = ({
   const uuid = useUUID();
   const eventId = `sb_${uuid}`;
   const pExecute = `
-window["${uuid}"];
+class Error extends window.Error{
+    constructor(...args){
+      super(...args)
+      console.error(this)
+    }
+}
 window.console.log=function(...data){
   window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"log",data})
 }
