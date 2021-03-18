@@ -9,7 +9,6 @@ import React, {
 } from "react";
 import SplitPane from "react-split-pane";
 import CodeEditor, { TypeScriptProps, TypeScriptRef } from "./CodeEditor";
-import Frame, { FrameContextConsumer } from "react-frame-component";
 import debounce from "lodash.debounce";
 import "./index.css";
 import * as monaco from "monaco-editor";
@@ -17,10 +16,7 @@ import * as Babel from "@babel/standalone";
 import { getDiagsMessages } from "./util";
 import systemjs from "!raw-loader!systemjs/dist/system.js";
 import systemjsAmd from "!raw-loader!systemjs/dist/extras/amd.min.js";
-import useUUID, { generateUUID } from "./useUUID";
-import template from "@babel/template";
-import generate from "@babel/generator";
-import { parseExpression, parse } from "@babel/parser";
+import useUUID from "./useUUID";
 import ReactJson from "react-json-view";
 import ConsoleDivider from "./ConsoleDivider";
 import "./babelPlugins";
@@ -106,6 +102,7 @@ const Sandbox: FC<SandboxProps> = ({
   const uuid = useUUID();
   const eventId = `sb_${uuid}`;
   const pExecute = `
+window["${uuid}"];
 window.console.log=function(...data){
   window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"log",data})
 }
@@ -139,29 +136,43 @@ window.console.error=function(...data){
       ).filter((e) => e.category === 1);
       const messages = getDiagsMessages(diags);
       if (messages.length > 0) {
-        throw new Error(messages.join("\n"));
+        const errors = messages.join("\n");
+        throw new Error(errors);
       }
 
       onChange?.(code);
       const preCheckCode = Babel.transform(code, {
         ...babelConfig,
-        plugins: ["maxium-count", "catch-error", ...babelConfig.plugins],
+        plugins: ["maxium-count", ...babelConfig.plugins],
       }).code;
+      console.log(`${pExecute};${preCheckCode}`);
       const compiledCode = `
-          ${
-            Babel.transform(`${pExecute};${preCheckCode}`, {
+        ${
+          Babel.transform(
+            `
+          ${pExecute}${preCheckCode}
+          `,
+            {
               ...babelConfig,
               presets: [...babelConfig.presets, "es2015"],
-              plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
-            }).code
-          }
-        
+              plugins: [
+                ...babelConfig.plugins,
+                "transform-modules-systemjs",
+              ],
+            }
+          ).code
+        }
      `;
       //修复文档流
-      const document: Document = ref.current.window.document;
+      // debugger
+      const document: Document | undefined =
+        ref.current?.contentWindow?.document;
+      if (!document) {
+        return;
+      }
       const codeBlob = new Blob([compiledCode], { type: "text/javascript" });
       const url = URL.createObjectURL(codeBlob);
-      if (document.children[0]) {
+      if (document?.children[0]) {
         document.removeChild(document.children[0]);
       }
 
@@ -178,13 +189,6 @@ window.console.error=function(...data){
           </div>
         </body>
         `;
-      /**
-       * 执行代码加载
-       */
-      const sc = document.createElement("script");
-      sc.type = "systemjs-module";
-      sc.src = url;
-      document.body.appendChild(sc);
       // process.env.NODE_ENV === "development" &&
       //   console.log("preCheckCode", preCheckCode);
       // console.log("compiledCode", compiledCode);
@@ -195,9 +199,22 @@ window.console.error=function(...data){
       loader.type = "text/javascript";
       loader.innerHTML = loadersCode.current;
       document.body.appendChild(loader);
+      /**
+       * 执行代码加载
+       */
+      const sc = document.createElement("script");
+      sc.type = "text/javascript";
+      sc.innerHTML = `
+         System.import("${url}").catch(e=>console.error(e))
+        `;
+      document.body.appendChild(sc);
       // setCode(code);
     } catch (error) {
-      const document: Document = ref.current.window.document;
+      const document: Document | undefined =
+        ref.current?.contentWindow?.document;
+      if (!document) {
+        return;
+      }
       if (document.children[0]) {
         document.removeChild(document.children[0]);
       }
@@ -220,9 +237,13 @@ window.console.error=function(...data){
   }, []);
   const onMessage = useCallback(
     (ev) => {
-      // console.log(ev);
-      const message: ConsoleMessage = ev.detail;
-      setConsoleMessages([...consoleMessages, message]);
+      try {
+        const message: ConsoleMessage = ev.detail;
+        // debugger
+        setConsoleMessages([...consoleMessages, message]);
+      } catch (error) {
+        // debugger;
+      }
     },
     [consoleMessages]
   );
@@ -297,7 +318,7 @@ window.console.error=function(...data){
     })();
   }, []);
 
-  const ref = useRef<any>();
+  const ref = useRef<HTMLIFrameElement>(null);
   const editorRef = useRef<TypeScriptRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [horizontalMaxSize, setHorizontalMaxSize] = useState<number>(9999);
@@ -327,7 +348,7 @@ window.console.error=function(...data){
     caclSize();
     window.addEventListener("resize", caclSize);
     return () => window.removeEventListener("resize", caclSize);
-  }, [caclSize]);
+  }, [caclSize, pageDefaultSize]);
   return (
     <>
       <div
@@ -367,28 +388,17 @@ window.console.error=function(...data){
             minSize={0}
           >
             <div key="preview" style={{ width: `100%` }}>
-              <>
-                {!loading && (
-                  <Frame
-                    style={{
-                      height: `100%`,
-                      width: `100%`,
-                      pointerEvents: dragging ? "none" : "initial",
-                    }}
-                    className="frame"
-                  >
-                    <FrameContextConsumer>
-                      {({ window }) => {
-                        if (!ref.current) {
-                          ref.current = window;
-                        }
-
-                        return <></>;
-                      }}
-                    </FrameContextConsumer>
-                  </Frame>
-                )}
-              </>
+              {!loading && (
+                <iframe
+                  style={{
+                    height: `100%`,
+                    width: `100%`,
+                    pointerEvents: dragging ? "none" : "initial",
+                  }}
+                  title="sb-preview"
+                  ref={ref}
+                />
+              )}
             </div>
             <div
               key="console"
@@ -402,6 +412,8 @@ window.console.error=function(...data){
               {consoleMessages.map((message, i) => (
                 <React.Fragment key={`msg${i}`}>
                   {message.data.map((data, i) => {
+                    console.dir(data);
+
                     return (
                       <div style={{ paddingBottom: 8 }} key={`msg${i}`}>
                         {typeof data === "string" &&
@@ -416,6 +428,17 @@ window.console.error=function(...data){
                               name={null}
                               key={`msg${i}`}
                               src={data}
+                            />
+                          )}
+                        {typeof data === "object" &&
+                          message.type === "error" &&
+                          data && (
+                            <ReactJson
+                              style={{ position: "static" }}
+                              collapsed={false}
+                              name={"Error"}
+                              key={`msg${i}`}
+                              src={{ message: data.message, stack: data.stack }}
                             />
                           )}
                         {data === null && (
