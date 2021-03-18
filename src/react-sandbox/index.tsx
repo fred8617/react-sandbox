@@ -160,10 +160,7 @@ window.console.error=function(...data){
             {
               ...babelConfig,
               presets: [...babelConfig.presets, "es2015"],
-              plugins: [
-                ...babelConfig.plugins,
-                "transform-modules-systemjs",
-              ],
+              plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
             }
           ).code
         }
@@ -242,15 +239,10 @@ window.console.error=function(...data){
   }, []);
   const onMessage = useCallback(
     (ev) => {
-      try {
-        const message: ConsoleMessage = ev.detail;
-        // debugger
-        setConsoleMessages([...consoleMessages, message]);
-      } catch (error) {
-        // debugger;
-      }
+      const message: ConsoleMessage = ev.detail;
+      setConsoleMessages((consoleMessages)=>[...consoleMessages, message])
     },
-    [consoleMessages]
+    []
   );
   const dispatchEvent = useCallback(
     (detail) => {

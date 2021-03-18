@@ -8,7 +8,7 @@ import React, {
 import * as monaco from "monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 import prettier from "prettier/standalone";
-import babel from "prettier/parser-babylon";
+import babel from "prettier/parser-babel";
 import gql from "prettier/parser-graphql";
 import ts from "prettier/parser-typescript";
 export interface CodeEditorProps
@@ -156,7 +156,7 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
                     trailingComma: "all",
                     jsxSingleQuote: false,
                     semi: true,
-                    plugins: [babel, ts, gql],
+                    plugins: [babel,ts, gql],
                     arrowParens: "always",
                     bracketSpacing: true,
                     htmlWhitespaceSensitivity: "css",
