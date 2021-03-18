@@ -102,21 +102,21 @@ const Sandbox: FC<SandboxProps> = ({
   const uuid = useUUID();
   const eventId = `sb_${uuid}`;
   const pExecute = `
-class Error extends window.Error{
-    constructor(...args){
-      super(...args)
-      console.error(this)
-    }
+// class Error extends window.Error{
+//     constructor(...args){
+//       super(...args)
+//       console.error(this)
+//     }
+// }
+window.onerror=function(message, source, lineno, colno, error){
+  // console.log(message, source, lineno, colno,)
+  console.error(error)
 }
-class RangeError extends window.RangeError{
-    constructor(...args){
-      super(...args)
-      console.error(this)
-    }
-}
+window.console.log=null
 window.console.log=function(...data){
   window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"log",data})
 }
+window.console.error=null
 window.console.error=function(...data){
   window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"error",data})
 }
@@ -137,7 +137,7 @@ window.console.error=function(...data){
   }, [scripts]);
   const run = useCallback(async (code) => {
     try {
-      setConsoleMessages([]);
+      setConsoleMessages(()=>[]);
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
       const diags = (
