@@ -157,6 +157,7 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
                     jsxSingleQuote: false,
                     semi: true,
                     plugins: [babel, ts, gql],
+                    parser: "babel-ts",
                     arrowParens: "always",
                     bracketSpacing: true,
                     htmlWhitespaceSensitivity: "css",
