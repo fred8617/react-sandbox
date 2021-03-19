@@ -86,11 +86,18 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
     const monacoRef = useRef<typeof monaco>();
     if (!model.current) {
       //   debugger
-      model.current = monaco.editor.createModel(
-        defaultValue,
-        "typescript",
-        monaco.Uri.file("/index.tsx")
-      );
+      const uri = monaco.Uri.file("/index.tsx");
+      const ifExsitModel = monaco.editor.getModel(uri);
+      // debugger
+      if (ifExsitModel&&!ifExsitModel?.isDisposed()) {
+        model.current = ifExsitModel;
+      } else {
+        model.current = monaco.editor.createModel(
+          defaultValue,
+          "typescript",
+          uri
+        );
+      }
     }
     useImperativeHandle(ref, () => ({
       model: model.current!,
@@ -98,7 +105,7 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
     }));
     useEffect(() => {
       return () => {
-        model.current!.dispose();
+        model.current?.dispose();
       };
     }, []);
     const loadLibs = () => {
