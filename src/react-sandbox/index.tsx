@@ -129,7 +129,6 @@ window.console.error=function(...data){
     );
   }, [scripts]);
   const run = useCallback(async (code) => {
-    debugger;
     try {
       setConsoleMessages(() => []);
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
