@@ -160,9 +160,7 @@ window.console.error=function(...data){
       const compiledCode = `
         ${
           Babel.transform(
-            `
-          ${pExecute}${preCheckCode}
-          `,
+            `${preCheckCode}`,
             {
               ...babelConfig,
               presets: [...babelConfig.presets, "es2015"],
@@ -189,8 +187,8 @@ window.console.error=function(...data){
         <head>
           <style type="text/css">${cssCode.current}</style>
           <script type="systemjs-importmap">
-         ${JSON.stringify({ imports: imports.current })}
-        </script>
+           ${JSON.stringify({ imports: imports.current })}
+          </script>
         </head>
         <body>
           <div id="root">
@@ -203,10 +201,17 @@ window.console.error=function(...data){
       /**
        * loader代码加载
        */
+      const preExcuteScript = document.createElement("script");
+      preExcuteScript.type = "text/javascript";
+      preExcuteScript.innerHTML =  `${pExecute}`;
+      document.documentElement.appendChild(preExcuteScript);
+      /**
+       * loader代码加载
+       */
       const loader = document.createElement("script");
       loader.type = "text/javascript";
       loader.innerHTML = loadersCode.current;
-      document.body.appendChild(loader);
+      document.documentElement.appendChild(loader);
       /**
        * 执行代码加载
        */
@@ -215,7 +220,7 @@ window.console.error=function(...data){
       sc.innerHTML = `
          System.import("${url}").catch(e=>console.error(e))
         `;
-      document.body.appendChild(sc);
+      document.documentElement.appendChild(sc);
       // setCode(code);
     } catch (error) {
       const document: Document | undefined =
