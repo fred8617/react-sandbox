@@ -102,14 +102,7 @@ const Sandbox: FC<SandboxProps> = ({
   const uuid = useUUID();
   const eventId = `sb_${uuid}`;
   const pExecute = `
-// class Error extends window.Error{
-//     constructor(...args){
-//       super(...args)
-//       console.error(this)
-//     }
-// }
 window.onerror=function(message, source, lineno, colno, error){
-  // console.log(message, source, lineno, colno,)
   console.error(error)
 }
 window.console.log=null
@@ -120,7 +113,7 @@ window.console.error=null
 window.console.error=function(...data){
   window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"error",data})
 }
-;${preExecute}
+;
   `;
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -136,8 +129,9 @@ window.console.error=function(...data){
     );
   }, [scripts]);
   const run = useCallback(async (code) => {
+    debugger;
     try {
-      setConsoleMessages(()=>[]);
+      setConsoleMessages(() => []);
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
       const diags = (
@@ -156,21 +150,17 @@ window.console.error=function(...data){
         ...babelConfig,
         plugins: ["maxium-count", ...babelConfig.plugins],
       }).code;
-      console.log(`${pExecute};${preCheckCode}`);
       const compiledCode = `
+      
         ${
-          Babel.transform(
-            `${preCheckCode}`,
-            {
-              ...babelConfig,
-              presets: [...babelConfig.presets, "es2015"],
-              plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
-            }
-          ).code
+          Babel.transform(` ${preExecute};${preCheckCode}`, {
+            ...babelConfig,
+            presets: [...babelConfig.presets, "es2015"],
+            plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
+          }).code
         }
      `;
       //修复文档流
-      // debugger
       const document: Document | undefined =
         ref.current?.contentWindow?.document;
       if (!document) {
@@ -198,12 +188,13 @@ window.console.error=function(...data){
       // process.env.NODE_ENV === "development" &&
       //   console.log("preCheckCode", preCheckCode);
       // console.log("compiledCode", compiledCode);
+
       /**
-       * loader代码加载
+       * 预执行代码加载
        */
       const preExcuteScript = document.createElement("script");
       preExcuteScript.type = "text/javascript";
-      preExcuteScript.innerHTML =  `${pExecute}`;
+      preExcuteScript.innerHTML = Babel.transform(pExecute, babelConfig).code;
       document.documentElement.appendChild(preExcuteScript);
       /**
        * loader代码加载
@@ -248,13 +239,10 @@ window.console.error=function(...data){
     } finally {
     }
   }, []);
-  const onMessage = useCallback(
-    (ev) => {
-      const message: ConsoleMessage = ev.detail;
-      setConsoleMessages((consoleMessages)=>[...consoleMessages, message])
-    },
-    []
-  );
+  const onMessage = useCallback((ev) => {
+    const message: ConsoleMessage = ev.detail;
+    setConsoleMessages((consoleMessages) => [...consoleMessages, message]);
+  }, []);
   const dispatchEvent = useCallback(
     (detail) => {
       const event = new CustomEvent<any>(eventId, { detail });
@@ -274,7 +262,7 @@ window.console.error=function(...data){
   useEffect(() => {
     (async () => {
       try {
-        setLoading(true);
+        // setLoading(true);
         const loaders: Script[] = [
           {
             name: "systemjs",
@@ -321,8 +309,9 @@ window.console.error=function(...data){
         loadersCode.current = loaders.map((e) => e.code).join(";");
       } finally {
         setLoading(false);
+        // run(pCode);
       }
-      run(pCode);
+     
     })();
   }, []);
 
@@ -374,14 +363,16 @@ window.console.error=function(...data){
           maxSize={horizontalMaxSize}
         >
           <div style={{ height: `100%` }} key="code">
-            <CodeEditor.TypeScript
-              ref={editorRef}
-              defaultValue={pCode}
-              libs={libs}
-              extraLibs={extraLibs}
-              onChange={debounce(run, 800)}
-              {...props}
-            />
+            {!loading && (
+              <CodeEditor.TypeScript
+                ref={editorRef}
+                defaultValue={pCode}
+                libs={libs}
+                extraLibs={extraLibs}
+                onChange={debounce(run, 800)}
+                {...props}
+              />
+            )}
           </div>
           <SplitPane
             onChange={(height) => {
