@@ -143,16 +143,14 @@ window.console.error=function(...data){
         const errors = messages.join("\n");
         throw new Error(errors);
       }
-
       onChange?.(code);
       const preCheckCode = Babel.transform(code, {
         ...babelConfig,
         plugins: ["maxium-count", ...babelConfig.plugins],
       }).code;
       const compiledCode = `
-      
         ${
-          Babel.transform(` ${preExecute};${preCheckCode}`, {
+          Babel.transform(`${preCheckCode}`, {
             ...babelConfig,
             presets: [...babelConfig.presets, "es2015"],
             plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
@@ -191,9 +189,20 @@ window.console.error=function(...data){
       /**
        * 预执行代码加载
        */
+      const pExcuteScript = document.createElement("script");
+      pExcuteScript.type = "text/javascript";
+      pExcuteScript.innerHTML = Babel.transform(pExecute, babelConfig).code;
+      document.documentElement.appendChild(pExcuteScript);
+      /**
+       * 预执行代码加载
+       */
       const preExcuteScript = document.createElement("script");
       preExcuteScript.type = "text/javascript";
-      preExcuteScript.innerHTML = Babel.transform(pExecute, babelConfig).code;
+      preExcuteScript.innerHTML = Babel.transform(`${preExecute}`, {
+        ...babelConfig,
+        presets: [...babelConfig.presets, "es2015"],
+        plugins: [...babelConfig.plugins],
+      }).code;
       document.documentElement.appendChild(preExcuteScript);
       /**
        * loader代码加载
@@ -310,7 +319,6 @@ window.console.error=function(...data){
         setLoading(false);
         // run(pCode);
       }
-     
     })();
   }, []);
 
@@ -359,6 +367,7 @@ window.console.error=function(...data){
           pane2Style={{ position: "relative" }}
           split="vertical"
           defaultSize={`50%`}
+          minSize={0}
           maxSize={horizontalMaxSize}
         >
           <div style={{ height: `100%` }} key="code">
