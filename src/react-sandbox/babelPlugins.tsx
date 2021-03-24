@@ -13,8 +13,7 @@ Babel.registerPlugin("maxium-count", () => {
   ${generate(path.node).code}
   超出最大循环限制(max:999)
           </pre>\`;
-          console.error(\`${generate(path.node).code}
-超出最大循环限制(max:999)\`)
+        
           throw new Error('超出最大循环限制')
         }
       `);

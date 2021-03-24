@@ -10,6 +10,7 @@
     "prettier": "2.2.1",
     "react-json-view": "^1.21.3",
     "react-split-pane": "0.1.89",
+    "source-map": "^0.7.3",
     "systemjs": "^6.7.1"
   },
   "devDependencies": {

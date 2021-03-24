@@ -4,6 +4,7 @@ import { parse } from "querystring";
 import { HashRouter, Route, Switch } from "react-router-dom";
 import Antd from "./example/antd";
 import LeetCode from "./example/leetcode";
+import Sourcemap from "./example/sourcemap";
 function App() {
   return (
     <>
@@ -14,6 +15,9 @@ function App() {
           </Route>
           <Route exact path="/leetcode">
             <LeetCode />
+          </Route>
+          <Route exact path="/sourcemap">
+            <Sourcemap />
           </Route>
         </Switch>
       </HashRouter>

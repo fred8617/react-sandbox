@@ -20,6 +20,11 @@ import useUUID from "./useUUID";
 import ReactJson from "react-json-view";
 import ConsoleDivider from "./ConsoleDivider";
 import "./babelPlugins";
+import sourceMap from "source-map";
+(sourceMap.SourceMapConsumer as any).initialize({
+  "lib/mappings.wasm": "https://unpkg.com/source-map@0.7.3/lib/mappings.wasm",
+});
+
 const HORIZONTAL_BAR_SIZE = 16;
 const VERTICAL_BAR_SIZE = 16;
 interface Script {
@@ -59,6 +64,8 @@ interface ImportsReflect {
 }
 
 const babelConfig = {
+  // sourceMaps:'both' ,
+  sourceMap: true,
   filename: "main.tsx",
   presets: ["typescript", "react"],
   plugins: [
@@ -88,6 +95,10 @@ interface ConsoleMessage {
   type: "log" | "error";
   data: any[];
 }
+interface SourceMapObject {
+  rawSourceMap;
+  url: string;
+}
 const Sandbox: FC<SandboxProps> = ({
   scripts: pScripts = [],
   code: pCode = "",
@@ -102,20 +113,22 @@ const Sandbox: FC<SandboxProps> = ({
   const uuid = useUUID();
   const eventId = `sb_${uuid}`;
   const pExecute = `
-window.onerror=function(message, source, lineno, colno, error){
+window.onerror=function(message, source, line, column, error){
   console.error(error)
+  window.parent[\`dispatch_${eventId}_file\`]({eventId:"${uuid}",type:"error",data:{message, source, line, column, error}})
 }
 window.console.log=null
 window.console.log=function(...data){
-  window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"log",data})
+  window.parent[\`dispatch_${eventId}_console\`]({eventId:"${uuid}",type:"log",data})
 }
 window.console.error=null
 window.console.error=function(...data){
-  window.parent[\`dispatch_${eventId}_event\`]({eventId:"${uuid}",type:"error",data})
+  window.parent[\`dispatch_${eventId}_console\`]({eventId:"${uuid}",type:"error",data})
 }
 ;
   `;
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
+  const [smap, setSMap] = useState<SourceMapObject>();
   const [loading, setLoading] = useState<boolean>(true);
   const [scripts, setScripts] = useState<Script[]>(pScripts);
   const [styles, setStyles] = useState<Style[]>(pStyles);
@@ -131,11 +144,17 @@ window.console.error=function(...data){
   const run = useCallback(async (code) => {
     try {
       setConsoleMessages(() => []);
+      // const uri = monaco.Uri.file("/index.tsx");
+      // const markers=monaco.editor.getModelMarkers({
+
+      // })
+      // console.log(markers);
+
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
       const diags = (
         await worker.getSemanticDiagnostics(
-          monaco.Uri.file("/index.tsx").toString()
+          monaco.Uri.file("/main.tsx").toString()
         )
       ).filter((e) => e.category === 1);
       const messages = getDiagsMessages(diags);
@@ -144,18 +163,25 @@ window.console.error=function(...data){
         throw new Error(errors);
       }
       onChange?.(code);
-      const preCheckCode = Babel.transform(code, {
+      // const babelPreCheck = Babel.transform(code, {
+      //   ...babelConfig,
+      //   plugins: ["maxium-count", ...babelConfig.plugins],
+      // });
+
+      // const preCheckCode = babelPreCheck.code;
+      const babelCompiled = Babel.transform(`${code}`, {
         ...babelConfig,
-        plugins: ["maxium-count", ...babelConfig.plugins],
-      }).code;
+        presets: [...babelConfig.presets, "es2015"],
+        plugins: [
+          "maxium-count",
+          ...babelConfig.plugins,
+          "transform-modules-systemjs",
+        ],
+      });
+      console.log("babelCompiled", babelCompiled);
+
       const compiledCode = `
-        ${
-          Babel.transform(`${preCheckCode}`, {
-            ...babelConfig,
-            presets: [...babelConfig.presets, "es2015"],
-            plugins: [...babelConfig.plugins, "transform-modules-systemjs"],
-          }).code
-        }
+        ${babelCompiled.code}
      `;
       //修复文档流
       const document: Document | undefined =
@@ -165,6 +191,8 @@ window.console.error=function(...data){
       }
       const codeBlob = new Blob([compiledCode], { type: "text/javascript" });
       const url = URL.createObjectURL(codeBlob);
+
+      setSMap(() => ({ rawSourceMap: babelCompiled.map, url }));
       if (document?.children[0]) {
         document.removeChild(document.children[0]);
       }
@@ -217,7 +245,15 @@ window.console.error=function(...data){
       const sc = document.createElement("script");
       sc.type = "text/javascript";
       sc.innerHTML = `
-         System.import("${url}").catch(e=>console.error(e))
+         System.import("${url}");
+         System.onload=function(error, source, deps, isErrSource){
+          //  debugger
+           if(error){
+              console.error(error);
+              window.parent[\`dispatch_${eventId}_file\`]({eventId:"${uuid}",type:"error",data:{source, error}})
+           }
+           
+         }
         `;
       document.documentElement.appendChild(sc);
       // setCode(code);
@@ -247,26 +283,100 @@ window.console.error=function(...data){
     } finally {
     }
   }, []);
-  const onMessage = useCallback((ev) => {
+  const onConsoleMessage = useCallback((ev) => {
     const message: ConsoleMessage = ev.detail;
     setConsoleMessages((consoleMessages) => [...consoleMessages, message]);
   }, []);
-  const dispatchEvent = useCallback(
+  const onFileMessage = useCallback(
+    async (ev) => {
+      // debugger
+      if (ev.detail.type === "error" && smap!.url === ev.detail.data.source) {
+        let { line, column, error } = ev.detail.data;
+        if (line === undefined && column === undefined && error) {
+          const stack = error.stack;
+          const url = smap!.url;
+          const urlIndex = stack.indexOf(url + ":");
+          line = "";
+          column = "";
+          let isLine = true;
+          for (let i = urlIndex + url.length + 1; i < stack.length; i++) {
+            const num = stack[i];
+            if (num === ")") {
+              break;
+            }
+            if (num === ":") {
+              isLine = false;
+              continue;
+            }
+            if (isLine) {
+              line += num;
+            } else {
+              column += num;
+            }
+          }
+          line = Number(line);
+          column = Number(column);
+        }
+        const consumer = await sourceMap.SourceMapConsumer.with(
+          smap!.rawSourceMap,
+          null,
+          (consumer) => consumer
+        );
+        const originPosition = consumer.originalPositionFor({
+          line,
+          column,
+        });
+        console.log("originPosition", originPosition);
+        console.log("line", line);
+        console.log("column", column);
+        console.log("error", error);
+
+        debugger;
+        monaco.editor.setModelMarkers(editorRef.current!.model, "???", [
+          {
+            startColumn: originPosition.column!,
+            endColumn: originPosition.column!,
+            startLineNumber: originPosition.line!,
+            endLineNumber: originPosition.line!,
+            severity: 8,
+            message: error.message,
+          },
+        ]);
+      }
+    },
+    [smap]
+  );
+  const dispatchConsoleEvent = useCallback(
     (detail) => {
-      const event = new CustomEvent<any>(eventId, { detail });
+      const event = new CustomEvent<any>(`${eventId}_console`, { detail });
+      window.dispatchEvent(event);
+    },
+    [eventId]
+  );
+  const dispatchFileEvent = useCallback(
+    (detail) => {
+      const event = new CustomEvent<any>(`${eventId}_file`, { detail });
       window.dispatchEvent(event);
     },
     [eventId]
   );
   useEffect(() => {
-    window[`dispatch_${eventId}_event`] = dispatchEvent;
-    window.addEventListener(eventId, onMessage);
-    // window.addEventListener("message", onMessage);
+    window[`dispatch_${eventId}_console`] = dispatchConsoleEvent;
+    window[`dispatch_${eventId}_file`] = dispatchFileEvent;
+    window.addEventListener(`${eventId}_console`, onConsoleMessage);
+    window.addEventListener(`${eventId}_file`, onFileMessage);
+
     return () => {
-      window.removeEventListener(eventId, onMessage);
-      // window.removeEventListener("message", onMessage);
+      window.removeEventListener(`${eventId}_console`, onConsoleMessage);
+      window.removeEventListener(`${eventId}_file`, onFileMessage);
     };
-  }, [dispatchEvent, eventId, onMessage]);
+  }, [
+    dispatchConsoleEvent,
+    dispatchFileEvent,
+    eventId,
+    onConsoleMessage,
+    onFileMessage,
+  ]);
   useEffect(() => {
     (async () => {
       try {
@@ -416,68 +526,74 @@ window.console.error=function(...data){
                 boxSizing: "border-box",
               }}
             >
-              {consoleMessages.map((message, i) => (
-                <React.Fragment key={`msg${i}`}>
-                  {message.data.map((data, i) => {
-                    console.dir(data);
+              {consoleMessages
+                .filter((message) => message.data.length > 0)
+                .map((message, i) => (
+                  <React.Fragment key={`msg${i}`}>
+                    {message.data.map((data, i) => {
+                      // console.dir(data);
+                      // console.log(typeof data);
 
-                    return (
-                      <div style={{ paddingBottom: 8 }} key={`msg${i}`}>
-                        {typeof data === "string" &&
-                          message.type === "error" &&
-                          data && <pre style={{ color: "red" }}>{data}</pre>}
-                        {typeof data === "object" &&
-                          message.type === "log" &&
-                          data && (
-                            <ReactJson
-                              style={{ position: "static" }}
-                              collapsed
-                              name={null}
-                              key={`msg${i}`}
-                              src={data}
-                            />
+                      return (
+                        <div style={{ paddingBottom: 8 }} key={`msg${i}`}>
+                          {typeof data === "string" &&
+                            message.type === "error" &&
+                            data && <pre style={{ color: "red" }}>{data}</pre>}
+                          {typeof data === "object" &&
+                            message.type === "log" &&
+                            data && (
+                              <ReactJson
+                                style={{ position: "static" }}
+                                collapsed
+                                name={null}
+                                key={`msg${i}`}
+                                src={data}
+                              />
+                            )}
+                          {typeof data === "object" &&
+                            message.type === "error" &&
+                            data && (
+                              <ReactJson
+                                style={{ position: "static" }}
+                                collapsed={false}
+                                name={"Error"}
+                                key={`msg${i}`}
+                                src={{
+                                  message: data.message,
+                                  stack: data.stack,
+                                }}
+                              />
+                            )}
+                          {data === null && (
+                            <span style={{ color: "purple" }}>null</span>
                           )}
-                        {typeof data === "object" &&
-                          message.type === "error" &&
-                          data && (
-                            <ReactJson
-                              style={{ position: "static" }}
-                              collapsed={false}
-                              name={"Error"}
-                              key={`msg${i}`}
-                              src={{ message: data.message, stack: data.stack }}
-                            />
+                          {(typeof data === "number" ||
+                            typeof data === "string") &&
+                            message.type === "log" && <>{data}</>}
+                          {typeof data === "symbol" && (
+                            <span style={{ color: "red" }}>
+                              {data.toString()}
+                            </span>
                           )}
-                        {data === null && (
-                          <span style={{ color: "purple" }}>null</span>
-                        )}
-                        {(typeof data === "number" ||
-                          typeof data === "string") &&
-                          message.type === "log" && <>{data}</>}
-                        {typeof data === "symbol" && (
-                          <span style={{ color: "red" }}>
-                            {data.toString()}
-                          </span>
-                        )}
-                        {typeof data === "function" && (
-                          <span style={{ color: "gray" }}>
-                            {data.toString()}
-                          </span>
-                        )}
-                        {typeof data === "undefined" && (
-                          <span style={{ color: "#d3d3d3" }}>undefined</span>
-                        )}
-                        {typeof data === "boolean" && (
-                          <span style={{ color: "blue" }}>
-                            {data.toString()}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {i !== consoleMessages.length - 1 && <ConsoleDivider />}
-                </React.Fragment>
-              ))}
+                          {typeof data === "function" && (
+                            <span style={{ color: "gray" }}>
+                              {data.toString()}
+                            </span>
+                          )}
+                          {typeof data === "undefined" && (
+                            <span style={{ color: "#d3d3d3" }}>undefined</span>
+                          )}
+                          {typeof data === "boolean" && (
+                            <span style={{ color: "blue" }}>
+                              {data.toString()}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {i !== consoleMessages.length - 1 && <ConsoleDivider />}
+                  </React.Fragment>
+                ))}
             </div>
           </SplitPane>
         </SplitPane>

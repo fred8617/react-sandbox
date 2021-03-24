@@ -86,7 +86,7 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
     const monacoRef = useRef<typeof monaco>();
     if (!model.current) {
       //   debugger
-      const uri = monaco.Uri.file("/index.tsx");
+      const uri = monaco.Uri.file("/main.tsx");
       const ifExsitModel = monaco.editor.getModel(uri);
       // debugger
       if (ifExsitModel&&!ifExsitModel?.isDisposed()) {

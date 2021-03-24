@@ -1,0 +1,4 @@
+console.log(1);
+var b = new ListNode(1);
+b.next;
+b.next.next;
