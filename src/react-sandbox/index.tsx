@@ -317,21 +317,24 @@ window.console.error=function(...data){
           line = Number(line);
           column = Number(column);
         }
-        const consumer = await sourceMap.SourceMapConsumer.with(
-          smap!.rawSourceMap,
-          null,
-          (consumer) => consumer
+        line--;
+        column--;
+        const consumer = await new sourceMap.SourceMapConsumer(
+          smap!.rawSourceMap
         );
         const originPosition = consumer.originalPositionFor({
           line,
           column,
         });
-        console.log("originPosition", originPosition);
-        console.log("line", line);
-        console.log("column", column);
-        console.log("error", error);
-
-        debugger;
+        consumer.destroy();
+        // console.log("originPosition", originPosition);
+        // console.log("line", line);
+        // console.log("column", column);
+        // console.log("error", error);
+        // consumer.eachMapping(function (m) {
+        //   console.log(m);
+        // });
+        // debugger;
         monaco.editor.setModelMarkers(editorRef.current!.model, "???", [
           {
             startColumn: originPosition.column!,
