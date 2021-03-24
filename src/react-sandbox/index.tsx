@@ -149,7 +149,7 @@ window.console.error=function(...data){
 
       // })
       // console.log(markers);
-
+      monaco.editor.setModelMarkers(editorRef.current!.model, "???", []);
       const _worker = await monaco.languages.typescript.getTypeScriptWorker();
       const worker = await _worker();
       const diags = (
