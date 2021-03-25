@@ -572,7 +572,7 @@ window.console.error=function(...data){
                           )}
                           {(typeof data === "number" ||
                             typeof data === "string") &&
-                            message.type === "log" && <>{data}</>}
+                            message.type === "log" && <pre>{data}</pre>}
                           {typeof data === "symbol" && (
                             <span style={{ color: "red" }}>
                               {data.toString()}

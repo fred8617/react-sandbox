@@ -1,4 +1,4 @@
-import React, {
+import {
   FC,
   useRef,
   useEffect,
@@ -89,7 +89,7 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
       const uri = monaco.Uri.file("/main.tsx");
       const ifExsitModel = monaco.editor.getModel(uri);
       // debugger
-      if (ifExsitModel&&!ifExsitModel?.isDisposed()) {
+      if (ifExsitModel && !ifExsitModel?.isDisposed()) {
         model.current = ifExsitModel;
       } else {
         model.current = monaco.editor.createModel(
@@ -187,6 +187,52 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
             "typescript",
             prettierOptions
           );
+
+          monaco.languages.registerCompletionItemProvider("typescript", {
+            provideCompletionItems: function (model, position) {
+              var word = model.getWordUntilPosition(position);
+              var range = {
+                startLineNumber: position.lineNumber,
+                endLineNumber: position.lineNumber,
+                startColumn: word.startColumn,
+                endColumn: word.endColumn,
+              };
+              return {
+                suggestions: [
+                  {
+                    label: "log",
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    documentation: "console.log",
+                    insertText: "console.log($1)",
+                    insertTextRules:
+                      monaco.languages.CompletionItemInsertTextRule
+                        .InsertAsSnippet,
+                    range: range,
+                  },
+                  {
+                    label: "error",
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    documentation: "console.error",
+                    insertText: "console.error($1)",
+                    insertTextRules:
+                      monaco.languages.CompletionItemInsertTextRule
+                        .InsertAsSnippet,
+                    range: range,
+                  },
+                  {
+                    label: "stringify",
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    documentation: "console.log",
+                    insertText: "console.log(JSON.stringify($1,null,2))",
+                    insertTextRules:
+                      monaco.languages.CompletionItemInsertTextRule
+                        .InsertAsSnippet,
+                    range: range,
+                  },
+                ],
+              };
+            },
+          });
           loadLibs();
         }}
         scrollbar={{}}
