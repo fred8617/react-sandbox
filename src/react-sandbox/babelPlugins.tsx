@@ -20,15 +20,16 @@ Babel.registerPlugin("maxium-count", () => {
     const blocks: any[] = path.node.body.body;
     blocks.unshift(uuidJudge);
     blocks.unshift(uuidIncresment);
-    // const clearUUID = template.ast(`${uuid}=0`);
     const insertUUID = template.ast(`let ${uuid}=0`);
-    const parentBody = path.parent.body;
-    for (let i = 0; i < parentBody.length; i++) {
-      const node = parentBody[i];
-      if (node === path.node) {
-        // parentBody.splice(i + 1, 0, clearUUID);
-        parentBody.splice(i, 0, insertUUID);
-        break;
+    //此处还需要考虑到switch case不一定存在block
+    const parentBody = path.parent.body || path.parent.consequent;
+    if (parentBody) {
+      for (let i = 0; i < parentBody.length; i++) {
+        const node = parentBody[i];
+        if (node === path.node) {
+          parentBody.splice(i, 0, insertUUID);
+          break;
+        }
       }
     }
   };
