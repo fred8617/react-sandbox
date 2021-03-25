@@ -1,10 +1,4 @@
-import {
-  FC,
-  useRef,
-  useEffect,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
+import { FC, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import * as monaco from "monaco-editor";
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 import prettier from "prettier/standalone";
@@ -224,6 +218,30 @@ const TypeScript = forwardRef<TypeScriptRef, TypeScriptProps>(
                     kind: monaco.languages.CompletionItemKind.Function,
                     documentation: "console.log",
                     insertText: "console.log(JSON.stringify($1,null,2))",
+                    insertTextRules:
+                      monaco.languages.CompletionItemInsertTextRule
+                        .InsertAsSnippet,
+                    range: range,
+                  },
+                  {
+                    label: "for",
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    documentation: "for circle",
+                    insertText: `for(let $\{1:index} = 0; $\{1:index} < $\{2:array}.length; $\{1:index}++){
+  let $\{3:element} = $\{2:array}[$\{1:index}]
+}`,
+                    insertTextRules:
+                      monaco.languages.CompletionItemInsertTextRule
+                        .InsertAsSnippet,
+                    range: range,
+                  },
+                  {
+                    label: "while",
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    documentation: "while circle",
+                    insertText: `while($\{1:condition}){
+ 
+}`,
                     insertTextRules:
                       monaco.languages.CompletionItemInsertTextRule
                         .InsertAsSnippet,
