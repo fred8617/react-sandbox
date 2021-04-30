@@ -5,6 +5,7 @@ import { HashRouter, Route, Switch } from "react-router-dom";
 import Antd from "./example/antd";
 import LeetCode from "./example/leetcode";
 import Sourcemap from "./example/sourcemap";
+import ApolloCilent from "./example/apollo-client";
 function App() {
   return (
     <>
@@ -18,6 +19,9 @@ function App() {
           </Route>
           <Route exact path="/sourcemap">
             <Sourcemap />
+          </Route>
+          <Route exact path="/apollo-client">
+            <ApolloCilent />
           </Route>
         </Switch>
       </HashRouter>

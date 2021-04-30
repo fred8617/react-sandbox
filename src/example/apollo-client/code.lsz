@@ -1,0 +1,51 @@
+import React, { FC } from "react";
+import ReactDOM from "react-dom";
+import { Skeleton, Typography } from "antd";
+import {
+  gql,
+  ApolloClient,
+  InMemoryCache,
+  ApolloProvider,
+  useQuery,
+} from "@apollo/client";
+const query = gql`
+  
+`;
+const { Paragraph } = Typography;
+const client = new ApolloClient({
+  uri: "http://localhost:8081/v1/graphql",
+  cache: new InMemoryCache({ addTypename: false }),
+  headers: {
+    "x-hasura-admin-secret": "myadminsecretkey",
+  },
+  defaultOptions: {
+    query: {
+      fetchPolicy: "network-only",
+    },
+  },
+});
+const Content: FC = () => {
+  const { data, loading, error } = useQuery(query);
+  return (
+    <Skeleton active loading={loading}>
+      <Paragraph style={{ padding: 10 }}>
+        <pre>{JSON.stringify(data || error, null, 2)}</pre>
+      </Paragraph>
+    </Skeleton>
+  );
+};
+class App extends React.Component {
+  render() {
+    return (
+      <ApolloProvider client={client}>
+        <Content />
+      </ApolloProvider>
+    );
+  }
+}
+ReactDOM.render(
+  <>
+    <App />
+  </>,
+  document.getElementById("root"),
+);

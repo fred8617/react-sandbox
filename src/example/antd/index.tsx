@@ -12,7 +12,7 @@ const Antd: FC = () => {
       scripts={[
         {
           name: "react",
-          src: "https://unpkg.com/react/umd/react.production.min.js",
+          src: "https://unpkg.com/react/umd/react.development.js",
           types: [
             "https://www.lsz8617.com/ts-type/react/index.d.ts",
             "https://www.lsz8617.com/ts-type/react/global.d.ts",
@@ -21,7 +21,7 @@ const Antd: FC = () => {
 
         {
           name: "react-dom",
-          src: "https://unpkg.com/react-dom/umd/react-dom.production.min.js",
+          src: "https://unpkg.com/react-dom/umd/react-dom.development.js",
           types: ["https://www.lsz8617.com/ts-type/react-dom/index.d.ts"],
         },
         {
