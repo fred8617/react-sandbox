@@ -1263,7 +1263,9 @@
                 name: "react-dom",
                 src:
                   "https://unpkg.com/react-dom/umd/react-dom.production.min.js",
-                types: ["https://www.lsz8617.com/ts-type/react-dom/index.d.ts"],
+                types: [
+                  "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react-dom/index.d.ts",
+                ],
               },
               { name: "moment", src: "https://unpkg.com/moment" },
               { name: "antd", src: "https://unpkg.com/antd@".concat(X) },
