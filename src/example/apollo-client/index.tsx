@@ -47,8 +47,8 @@ const Apollo: FC = () => {
           name: "react",
           src: "https://unpkg.com/react/umd/react.production.min.js",
           types: [
-            "https://www.lsz8617.com/ts-type/react/index.d.ts",
-            "https://www.lsz8617.com/ts-type/react/global.d.ts",
+            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/index.d.ts",
+            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/global.d.ts",
           ],
         },
 
