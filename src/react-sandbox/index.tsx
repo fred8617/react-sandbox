@@ -211,8 +211,8 @@ window.console.error=function(...data){
         </body>
         `;
       process.env.NODE_ENV === "development" &&
-      console.log("compiledCode", compiledCode);
-        // console.log("preCheckCode", preCheckCode);
+        console.log("compiledCode", compiledCode);
+      // console.log("preCheckCode", preCheckCode);
 
       /**
        * 预执行代码加载

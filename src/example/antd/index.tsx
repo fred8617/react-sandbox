@@ -12,18 +12,18 @@ const Antd: FC = () => {
       scripts={[
         {
           name: "react",
-          src: "https://unpkg.com/react/umd/react.development.js",
+          src: "https://unpkg.com/react@17/umd/react.development.js",
           types: [
-            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/index.d.ts",
-            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/global.d.ts",
+            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/v17/index.d.ts",
+            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react/v17/global.d.ts",
           ],
         },
 
         {
           name: "react-dom",
-          src: "https://unpkg.com/react-dom/umd/react-dom.development.js",
+          src: "https://unpkg.com/react-dom@17/umd/react-dom.development.js",
           types: [
-            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react-dom/index.d.ts",
+            "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/react-dom/v17/index.d.ts",
           ],
         },
         {
